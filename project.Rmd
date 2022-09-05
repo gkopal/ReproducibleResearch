@@ -1,0 +1,126 @@
+---
+title: "RR-Project"
+author: "Recep Arda Kaya & Gamze Kopal & Evrim Bilgen"
+date: "9/4/2022"
+output: html_document
+---
+
+
+## Importing Libraries
+
+```{r}
+library(tidyverse)
+library(lattice)
+library(caret)
+library(corrplot)
+library(psych)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("Biobase")
+library(NMF)
+library(grid)
+library(ggthemes)
+library(gridExtra)
+library(knitr)
+```
+
+## Including Plots
+
+```{r}
+data_cat <- read.csv("/Users/arda.kaya/Downloads/RR-Project/starbucks.xls")
+data <- read.csv("/Users/arda.kaya/Downloads/RR-Project/starbucks_clean.xls")
+data <- na.omit(data)
+data_cat <- na.omit(data_cat)
+
+data$loyal <-ifelse(data$loyal==0,1,0) # recoding loyal/disloyal customers
+data <- data[,-nearZeroVar(data)] 
+
+```
+
+
+```{r}
+o <- omega(data[,12:19], nfactors=3, plot=F)
+omega.diagram(o, digits=2, main="Attributes of Brand Image")
+```
+
+```{r}
+glm_fit <- glm(loyal ~ ., data, family="binomial")
+p <- predict(glm_fit, newdata = data, type = "response")
+pred <- ifelse(p>0.5,1,0)
+tab <- table(Predicted=pred, Actual=data$loyal)
+confusionMatrix(tab)
+c <- as.data.frame(glm_fit$coefficients)
+c$name <- rownames(c)
+colnames(c)[1] <- "coef"
+c$odds <- exp(c$coef)
+```
+
+```{r}
+options(repr.plot.width=13, repr.plot.height=13)
+
+c %>% filter(name!="(Intercept)" & name!="predict") %>%  ggplot(aes(reorder(name,odds),odds)) + 
+    geom_bar(stat = "identity") + 
+    geom_label(aes(label=round(odds,2)),size=4) +
+    coord_flip() +
+    theme_fivethirtyeight() +
+    theme(axis.text=element_text(size=12), plot.subtitle = element_text(size=12), plot.caption = element_text(size=12), panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    geom_hline(yintercept = 1, color="red", linetype="dashed") +
+    labs(title = 'Factors Affecting Customers Loyalty (Odds Ratio)', subtitle = "factors with odds ratio greater than 1 positively affect loyalty", caption = "*** interpretation: a 1 unit increase in spending category increases the odds of loyalty by a factor of 7.9 ***")
+
+```
+
+```{r}
+options(repr.plot.width=14, repr.plot.height=7)
+
+a <- ggplot(data,aes(spendPurchase,loyal, color=loyal)) + 
+    geom_jitter(height = .01, alpha = .5) +
+    stat_smooth(method="glm", method.args = list(family = "binomial"), se=F) +
+    scale_y_continuous(limits=c(0,1)) +
+    theme(axis.text=element_text(size=12), plot.subtitle = element_text(size=12), plot.caption = element_text(size=12)) +
+    labs(title = 'How Spending Affects Loyalty', subtitle="x: spending, y: loyalty") +
+    theme_fivethirtyeight()
+
+b <- ggplot(data,aes(priceRate,loyal, color=loyal)) + 
+    geom_jitter(height = .01, alpha = .5) +
+    stat_smooth(method="glm", method.args = list(family = "binomial"), se=F) +
+    scale_y_continuous(limits=c(0,1)) +
+    theme(axis.text=element_text(size=12), plot.subtitle = element_text(size=12), plot.caption = element_text(size=12)) +
+    labs(title = 'How Price Rating Affects Loyalty', subtitle="x: price rating, y: loyalty") +
+    theme_fivethirtyeight()
+
+grid.arrange(a,b, nrow=1)
+```
+
+```{r}
+fit <- nmf(data[,-1], 5, "lee", seed=14) 
+options(repr.plot.width=5, repr.plot.height=5)
+ht <- grid.grabExpr(coefmap(fit, color = "YlOrRd:50", scale = "c1", main="Decomposing Survey to 5 Groups", fontsize=4, cexCol=4/1, cexRow=4/1, tracks=NA))
+grid.newpage()
+pushViewport(viewport(angle = 90))
+grid.arrange(ht, heights=15)
+#popViewport()
+```
+
+```{r}
+# clustering
+w <- basis(fit)
+type <- max.col(w) 
+data$cluster <- type
+```
+
+```{r}
+cluster <- data %>% group_by(cluster) %>% summarise(n=n(), STATUS=median(status), AGE=mean(age), SPEND=median(spendPurchase), 
+                                                    PRICE=round(mean(priceRate),1), SERVICE=round(mean(serviceRate),1), 
+                                                    AMBIANCE=round(mean(ambianceRate),1), LOYAL=round(mean(loyal),1))
+
+# recoding categorical variables for better readability
+cluster[,'AGE'] <- c("20 to 29","20 to 29","20 to 29","20 to 29","20 to 29")
+cluster[,'STATUS'] <- c("employed","student","employed","employed","student")
+cluster[,'SPEND'] <- c("less than 20","less than 20","less than 20","20 to 40","20 to 40")
+
+kable(cluster, caption="Groups of Customers After Clustering")
+```
+
+```{r}
+
+```
