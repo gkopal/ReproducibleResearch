@@ -6,7 +6,14 @@ output: html_document
 ---
 
 
-## Importing Libraries
+## What Affects Starbucks Customer's Retention
+### Backgroud
+
+I understand that the Starbucks store in Malaysia questioned its customers to learn more about their buying behavior. The intent was to reveal the characteristics of a customer that will continue buying at Starbucks.
+
+### Conclusion
+
+Spending and price rating highly affect customer loyalty. A unit increase in spending category increases the odds of loyalty by a factor of 12.48. Ambiance rating and service rating positively contribute to the store's good brand image. On the other hand, improving product variety (product & choose rate) and wifi could more enhance the general brand image.
 
 ```{r}
 library(tidyverse)
@@ -24,11 +31,11 @@ library(gridExtra)
 library(knitr)
 ```
 
-## Including Plots
+## What Contributes to Positive Perception of Store's Brand Image
 
 ```{r}
-data_cat <- read.csv("/Users/arda.kaya/Downloads/RR-Project/starbucks.xls")
-data <- read.csv("/Users/arda.kaya/Downloads/RR-Project/starbucks_clean.xls")
+data_cat <- read.csv("/Users/arda.kaya/Downloads/ReproducibleResearch/starbucks_editedversion.csv")
+data <- read.csv("/Users/arda.kaya/Downloads/ReproducibleResearch/starbucks_editedversion_clean.xls")
 data <- na.omit(data)
 data_cat <- na.omit(data_cat)
 
@@ -43,6 +50,7 @@ o <- omega(data[,12:19], nfactors=3, plot=F)
 omega.diagram(o, digits=2, main="Attributes of Brand Image")
 ```
 
+## What Affects Customer's Loyalty: Logistic Regression
 ```{r}
 glm_fit <- glm(loyal ~ ., data, family="binomial")
 p <- predict(glm_fit, newdata = data, type = "response")
@@ -91,6 +99,8 @@ b <- ggplot(data,aes(priceRate,loyal, color=loyal)) +
 grid.arrange(a,b, nrow=1)
 ```
 
+
+## Customer's Segmentation Using Matrix Factorization
 ```{r}
 fit <- nmf(data[,-1], 5, "lee", seed=14) 
 options(repr.plot.width=5, repr.plot.height=5)
@@ -107,7 +117,7 @@ w <- basis(fit)
 type <- max.col(w) 
 data$cluster <- type
 ```
-
+## Table: Groups of Customers After Clustering
 ```{r}
 cluster <- data %>% group_by(cluster) %>% summarise(n=n(), STATUS=median(status), AGE=mean(age), SPEND=median(spendPurchase), 
                                                     PRICE=round(mean(priceRate),1), SERVICE=round(mean(serviceRate),1), 
